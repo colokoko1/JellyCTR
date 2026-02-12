@@ -157,7 +157,7 @@ bool perform_login() {
     snprintf(auth_url, sizeof(auth_url), "%s/Users/authenticatebyname", server_url);
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, "X-Emby-Authorization: MediaBrowser Client=\"JellyCTR\", Device=\"3DS\", DeviceId=\"16038\", Version=\"0.1\"");
+    headers = curl_slist_append(headers, "X-Emby-Authorization: MediaBrowser Client=\"JellyCTR\", Device=\"3DS\", DeviceId=\"16038\", Version=\"0.1.1\"");
     curl_easy_setopt(curl, CURLOPT_URL, auth_url);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
