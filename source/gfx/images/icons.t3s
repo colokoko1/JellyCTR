@@ -1,0 +1,21 @@
+--atlas -f rgba8888 -z auto
+prev_sng.png
+next_sng.png
+back_chevron.png
+batt_1.png
+batt_2.png
+batt_3.png
+batt_4.png 
+batt_5.png
+batt_6.png
+batt_full.png
+playing.png
+paused.png
+wifi_min.png
+wifi_med.png
+wifi_full.png
+loop_one.png
+loop_off.png
+shuffle_on.png
+shuffle_off.png
+loop_all.png
