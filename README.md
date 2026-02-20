@@ -2,6 +2,8 @@
 A Jellyfin client for the 3DS.
 ---
 **Music only for the time being**
+## Development status
+### I haven't abandoned this. My schedule gets a bit hectic at times, so the amount of time I can dedicate to this varies greatly.
 
 ## Features:
 * Support for all formats that Jellyfin is capable of transcoding
@@ -15,6 +17,9 @@ A Jellyfin client for the 3DS.
 * Layout needs improvement
 * Stuttering on slow networks instead of buffering longer
 
+## Roadmap:
+* Code cleanup
+* Video support (Expect this to take a while)
 ## Disclaimer:
 #### The vast majority of this code was written by an LLM. I do wish to change that in the future, and any PRs that aim to help with code cleanup and/or general optimizations are much appreciated. 
 #### I wish to be as open as possible about how this software was made.  
