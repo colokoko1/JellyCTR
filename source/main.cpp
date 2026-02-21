@@ -1,3 +1,42 @@
+// JellyCTR v0.2 - Full Release Candidate 4
+// hardware is a nightmare but the nightmare goes on anyway
+// TODO: Split into smaller files
+//            |_ jpeg.cpp
+//            |_ network.cpp
+//            |_ system.cpp
+//            |_ audio.cpp
+//            |_ video.cpp
+//            |_ ui.cpp
+//       Switch globals to compile-time
+//       Add options menu
+//       Clean up code
+//       Optimize current code
+//       Add theming options in config file
+//       Add debug info
+//          |_ Current ram usage
+//          |_ CPU core utilization
+//       Switch to JSON for config.
+//  ^^^ Release 0.3 ^^^
+//       Implement video support
+//          |_ Add video menu
+//          |_ Fetch contents
+//          |_ Get media info
+//          |_ Set 3ds speed for N3DS family
+//          |_ Add audio decoding
+//          |_ Add network indicator
+//          |_ Add HW decode
+//          |_ Create device profile
+//          |_ Add software decode
+//          |_ Add software decode profile
+//          |_ Add 3d support
+//          |_ Add 3d profile
+//          |_ Work on remote streaming stability, buffer at least 15 seconds worth of content
+//       Improve UX
+//          |_ Add search funcitonality
+//          |_ Add debug menu
+//          |_ Optimize everything
+//          |_ Redo main UI
+//  ^^^ Release 0.4 ^^^
 #include <3ds.h>
 #include <citro2d.h>
 #include <citro3d.h>
@@ -196,7 +235,7 @@ void play_song(const MusicItem& item) {
     thread_run = true;
     pthread_create(&play_thread, NULL, [](void* arg) -> void* {
         CURL *curl = curl_easy_init(); char stream[2048]; 
-        snprintf(stream, sizeof(stream), "%s/Audio/%s/stream?static=false&audioCodec=pcm_s16le&container=raw&audioSampleRate=48000&maxSampleRate=48000&targetSampleRate=48000&audioBitRate=1536000&api_key=%s", server_url, current_song_id, access_token);
+        snprintf(stream, sizeof(stream), "%s/Audio/%s/stream?static=false&audioCodec=pcm_s16le&container=raw&audioSampleRate=48000&maxSampleRate=48000&targetSampleRate=48000&audioBitRate=1536000&api_key=%s", server_url, current_song_id, access_token); // You need to specify both a target and fallback sample rate to avoid Jellyfin crashing FFMPEG
         curl_easy_setopt(curl, CURLOPT_URL, stream); curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, audio_callback); curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_perform(curl); curl_easy_cleanup(curl); thread_run = false; return NULL;
     }, NULL);
