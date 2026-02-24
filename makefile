@@ -1,66 +1,78 @@
-# JellyCTR makefile v0.2
+# JellyCTR makefile v0.3.7
 ifeq ($(strip $(DEVKITARM)),)
-$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+$(error "Please set DEVKITARM in your environment.")
 endif
+
+# Absolute pathing for tools
+PREFIX  := $(DEVKITARM)/bin/arm-none-eabi-
+CC      := $(PREFIX)gcc
+CXX     := $(PREFIX)g++
+# We use G++ for linking to automatically handle some C++ standard library paths
+LD      := $(PREFIX)g++
 
 TOPDIR ?= $(CURDIR)
 include $(DEVKITARM)/3ds_rules
 
-TARGET		:=	JellyCTR
-BUILD		:=	build
-SOURCES		:=	source source/GFX
-DATA		:=	data
-INCLUDES	:=	include source/GFX
-GRAPHICS	:=	source/GFX
+TARGET      :=  JellyCTR
+BUILD       :=  build
+SOURCES     :=  source
+DATA        :=  data
+INCLUDES    :=  include source source/gfx/images
+GRAPHICS    :=  source/gfx/images
 
-# options for code generation
-ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
+# ARCH options
+ARCH    :=  -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -mword-relocations \
-			-ffunction-sections \
-			$(ARCH)
+PORTLIBS := $(DEVKITPRO)/portlibs/3ds
+LIBCTRU  := $(DEVKITPRO)/libctru
 
-CFLAGS	+=	$(INCLUDE) -D__3DS__
+CFLAGS  :=  -g -Wall -O2 -mword-relocations \
+            -ffunction-sections \
+            $(ARCH)
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
+CFLAGS  +=  -D__3DS__ \
+            -I$(LIBCTRU)/include \
+            -I$(PORTLIBS)/include \
+            $(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir))
 
-ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 
-LIBS	:= -lcitro2d -lcitro3d -lctru -lm -lcurl -ljson-c -ljpeg
+ASFLAGS :=  -g $(ARCH)
+LDFLAGS =   -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBDIRS	:= $(CTRULIB)
+# LIBDIRS defined here
+LIBDIRS := $(PORTLIBS) $(LIBCTRU)
+
+# Converts LIBDIRS into -L flags
+LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+# THE FIX: Added -lstdc++ for your vectors/strings and -lz for curl compression.
+# These MUST come after the libraries that use them.
+LIBS    := -lcitro2d -lcitro3d -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -ljson-c -ljpeg -lctru -lstdc++ -lz -lm
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
-export TOPDIR	:=	$(CURDIR)
+export OUTPUT   :=  $(CURDIR)/$(TARGET)
+export TOPDIR   :=  $(CURDIR)
 
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-			$(foreach dir,$(GRAPHICS),$(CURDIR)/$(dir)) \
-			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+export VPATH    :=  $(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+                    $(foreach dir,$(GRAPHICS),$(CURDIR)/$(dir)) \
+                    $(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
-export DEPSDIR	:=	$(CURDIR)/$(BUILD)
+export DEPSDIR  :=  $(CURDIR)/$(BUILD)
 
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
-SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
-GFXFILES	:=	$(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.t3s)))
+CFILES      :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES    :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+SFILES      :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+GFXFILES    :=  $(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.t3s)))
 
-# We output the .t3x to the same folder as the script for manual SD copying
-export T3XFILES	:=	$(patsubst %.t3s, $(SOURCES)/%.t3x, $(GFXFILES))
-export T3XHFILES :=	$(patsubst %.t3s, $(SOURCES)/%.h, $(GFXFILES))
+export OFILES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 
-export OFILES_SOURCES 	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-export OFILES := $(OFILES_SOURCES)
-
-export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
-			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
-			-I$(CURDIR)/$(BUILD)
+T3XFILES := $(patsubst %.t3s,$(TOPDIR)/source/gfx/images/%.t3x,$(GFXFILES))
 
 .PHONY: all clean
 
-all: $(BUILD) $(T3XFILES) $(T3XHFILES)
+all: $(BUILD) $(T3XFILES)
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 $(BUILD):
@@ -68,18 +80,18 @@ $(BUILD):
 
 clean:
 	@echo cleaning up build files...
-	@rm -fr $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf
-
-# uses -i because the script handles the atlas flag itself
-$(SOURCES)/%.t3x $(SOURCES)/%.h : %.t3s
-	@echo converting $(notdir $<)
-	@tex3ds -i $< -H $(SOURCES)/$*.h -o $(SOURCES)/$*.t3x
+	@rm -fr $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TOPDIR)/source/gfx/images/*.t3x $(TOPDIR)/source/gfx/images/*.h
 
 else
 
-$(OUTPUT).3dsx	:	$(OUTPUT).elf
-$(OFILES_SOURCES) : $(HFILES)
-$(OUTPUT).elf	:	$(OFILES)
+$(OUTPUT).3dsx  :   $(OUTPUT).elf
+$(OUTPUT).elf   :   $(OFILES)
+	@echo linking $(notdir $@)
+	@$(LD) $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@
+
+$(TOPDIR)/source/gfx/images/%.t3x: %.t3s
+	@echo converting $(notdir $<)
+	@tex3ds -i $< -H $(TOPDIR)/source/gfx/images/$*.h -o $@
 
 %.o: %.cpp
 	@echo $(notdir $<)
