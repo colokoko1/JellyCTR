@@ -1,4 +1,4 @@
-# JellyCTR makefile v0.3.7
+# JellyCTR makefile v0.3.8
 ifeq ($(strip $(DEVKITARM)),)
 $(error "Please set DEVKITARM in your environment.")
 endif
@@ -7,7 +7,6 @@ endif
 PREFIX  := $(DEVKITARM)/bin/arm-none-eabi-
 CC      := $(PREFIX)gcc
 CXX     := $(PREFIX)g++
-# We use G++ for linking to automatically handle some C++ standard library paths
 LD      := $(PREFIX)g++
 
 TOPDIR ?= $(CURDIR)
@@ -33,22 +32,20 @@ CFLAGS  :=  -g -Wall -O2 -mword-relocations \
 CFLAGS  +=  -D__3DS__ \
             -I$(LIBCTRU)/include \
             -I$(PORTLIBS)/include \
-            $(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir))
+            $(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir))
 
 CXXFLAGS := $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
 
 ASFLAGS :=  -g $(ARCH)
 LDFLAGS =   -specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-# LIBDIRS defined here
 LIBDIRS := $(PORTLIBS) $(LIBCTRU)
-
-# Converts LIBDIRS into -L flags
 LIBPATHS := $(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 
-# THE FIX: Added -lstdc++ for your vectors/strings and -lz for curl compression.
-# These MUST come after the libraries that use them.
+# Libraries
 LIBS    := -lcitro2d -lcitro3d -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -ljson-c -ljpeg -lctru -lstdc++ -lz -lm
+
+# --- Main Build Logic ---
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))
 
@@ -67,12 +64,13 @@ SFILES      :=  $(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 GFXFILES    :=  $(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.t3s)))
 
 export OFILES := $(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-
-T3XFILES := $(patsubst %.t3s,$(TOPDIR)/source/gfx/images/%.t3x,$(GFXFILES))
+export T3XFILES := $(patsubst %.t3s,$(TOPDIR)/source/gfx/images/%.t3x,$(GFXFILES))
 
 .PHONY: all clean
 
-all: $(BUILD) $(T3XFILES)
+# The 'all' target now ensures graphics are built BEFORE entering the build directory
+all: $(BUILD)
+	@$(MAKE) $(T3XFILES) --no-print-directory
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 $(BUILD):
@@ -82,20 +80,30 @@ clean:
 	@echo cleaning up build files...
 	@rm -fr $(BUILD) $(TARGET).3dsx $(TARGET).smdh $(TARGET).elf $(TOPDIR)/source/gfx/images/*.t3x $(TOPDIR)/source/gfx/images/*.h
 
+# Graphics generation rule moved to top-level to ensure availability
+$(TOPDIR)/source/gfx/images/%.t3x: %.t3s
+	@echo converting $(notdir $<)
+	@tex3ds -i $< -H $(TOPDIR)/source/gfx/images/$*.h -o $@
+
 else
+
+# --- Sub-make Logic (Inside build/ folder) ---
 
 $(OUTPUT).3dsx  :   $(OUTPUT).elf
 $(OUTPUT).elf   :   $(OFILES)
 	@echo linking $(notdir $@)
 	@$(LD) $(LDFLAGS) $(OFILES) $(LIBPATHS) $(LIBS) -o $@
 
-$(TOPDIR)/source/gfx/images/%.t3x: %.t3s
-	@echo converting $(notdir $<)
-	@tex3ds -i $< -H $(TOPDIR)/source/gfx/images/$*.h -o $@
+# CRITICAL: This line tells the compiler that objects depend on the graphics headers
+$(OFILES): $(T3XFILES)
 
 %.o: %.cpp
 	@echo $(notdir $<)
 	@$(CXX) -MMD -MP -MF $(DEPSDIR)/$*.d $(CXXFLAGS) -c $< -o $@
+
+%.o: %.c
+	@echo $(notdir $<)
+	@$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d $(CFLAGS) -c $< -o $@
 
 -include $(DEPSDIR)/*.d
 
